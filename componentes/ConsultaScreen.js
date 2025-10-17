@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  Button,
   Alert,
   Modal,
   TouchableOpacity
@@ -62,17 +61,29 @@ export default function ConsultaScreen({ navigation }) {
     setIsModalVisible(false);
     setLoading(true);
     
+    const deleteUrl = `${BASE_URL}${itemToDelete.id}`;
+
     try {
-      await fetch(`${BASE_URL}${itemToDelete.id}`, { method: 'DELETE' });
-      setLista((prev) =>
-        prev.filter((i) => String(i.id) !== String(itemToDelete.id))
-      );
-      Alert.alert('Sucesso', 'Item excluído.');
+      const res = await fetch(deleteUrl, { method: 'DELETE' });
+
+      if (res.ok) {
+        setLista((prev) =>
+          prev.filter((i) => String(i.id) !== String(itemToDelete.id))
+        );
+        Alert.alert('Sucesso', 'Item excluído.');
+      } else {
+        const errorText = await res.text();
+        Alert.alert(
+          'Erro na Exclusão',
+          `Falha ao excluir. Status: ${res.status}. Detalhes: ${errorText.substring(0, 100)}`
+        );
+      }
     } catch (err) {
-      Alert.alert('Erro de rede', `Falha ao excluir item: ${String(err)}`);
+      Alert.alert('Erro de Rede', `Não foi possível conectar. ${String(err)}`);
     } finally {
       setItemToDelete(null);
       setLoading(false);
+      fetchLista();
     }
   };
 
@@ -92,7 +103,6 @@ export default function ConsultaScreen({ navigation }) {
           </Text>
 
           <View style={modalStyles.buttonContainer}>
-            {}
             <TouchableOpacity
               style={[modalStyles.button, modalStyles.buttonCancel]}
               onPress={() => {
@@ -103,7 +113,6 @@ export default function ConsultaScreen({ navigation }) {
               <Text style={modalStyles.textStyle}>Cancelar</Text>
             </TouchableOpacity>
 
-            {}
             <TouchableOpacity
               style={[modalStyles.button, modalStyles.buttonDelete]}
               onPress={confirmDelete}
@@ -118,23 +127,23 @@ export default function ConsultaScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {}
       <DeleteConfirmationModal />
 
       <View style={styles.topButton}>
-        <Button
-          title="+ Novo Item"
+        <TouchableOpacity
+          style={styles.newButton}
           onPress={() => navigation.navigate('Cadastro')}
-          color="#1976d2"
-        />
+        >
+          <Text style={styles.newButtonText}>+ Novo Item</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#1976d2" style={{ marginTop: 20 }} />
       ) : (
         <ScrollView
           style={{ width: '100%' }}
-          contentContainerStyle={{ padding: 12 }}
+          contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 20 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {lista.length === 0 ? (
@@ -143,19 +152,27 @@ export default function ConsultaScreen({ navigation }) {
             lista.map((item, idx) => (
               <View key={item.id ?? idx} style={styles.card}>
                 <Text style={styles.title}>{item.titulo ?? `Item ${idx + 1}`}</Text>
-                <Text>Quantidade: {item.quantidade ?? '—'}</Text>
-                <Text>Preço: {item.Preco ?? '—'}</Text>
+                <Text style={styles.detail}>
+                  <Text style={styles.detailLabel}>Quantidade:</Text> {item.quantidade ?? '—'}
+                </Text>
+                <Text style={styles.detail}>
+                  <Text style={styles.detailLabel}>Preço:</Text> {item.preco ?? '—'}
+                </Text>
+                
                 <View style={styles.cardButtons}>
-                  <Button
-                    title="Editar"
-                    color="#1976d2"
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.editButton]}
                     onPress={() => navigation.navigate('Cadastro', { itemParaEditar: item })}
-                  />
-                  <Button
-                    title="Excluir"
-                    color="#d32f2f"
+                  >
+                    <Text style={styles.actionButtonText}>Editar</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.deleteButton]}
                     onPress={() => handleDelete(item)}
-                  />
+                  >
+                    <Text style={styles.actionButtonText}>Excluir</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ))
@@ -167,19 +184,77 @@ export default function ConsultaScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', padding: 8 },
-  topButton: { width: '90%', marginVertical: 10 },
-  card: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
-    backgroundColor: '#fff'
+  container: { flex: 1, backgroundColor: '#f5f5f5', alignItems: 'center' },
+  topButton: { width: '90%', marginVertical: 15 },
+  newButton: {
+    backgroundColor: '#1976d2',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    elevation: 3,
   },
-  title: { fontWeight: 'bold', marginBottom: 6 },
-  empty: { fontSize: 16, color: '#666', textAlign: 'center', marginTop: 20 },
-  cardButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }
+  newButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  title: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    marginBottom: 8, 
+    color: '#333' 
+  },
+  detail: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 2,
+  },
+  detailLabel: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  cardButtons: { 
+    flexDirection: 'row', 
+    justifyContent: 'flex-end', 
+    marginTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 10
+  },
+  actionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 6,
+    marginLeft: 10,
+  },
+  editButton: {
+    backgroundColor: '#ff9800',
+  },
+  deleteButton: {
+    backgroundColor: '#d32f2f',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  empty: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
+    color: '#666'
+  }
 });
 
 const modalStyles = StyleSheet.create({
@@ -187,47 +262,50 @@ const modalStyles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   modalView: {
     margin: 20,
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 35,
+    padding: 30,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    width: '80%',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    width: '85%',
   },
   modalTitle: {
     marginBottom: 15,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
+    color: '#333',
   },
   modalText: {
     marginBottom: 20,
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 16,
+    color: '#555',
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
+    marginTop: 10,
   },
   button: {
-    borderRadius: 6,
-    padding: 10,
+    borderRadius: 8,
+    padding: 12,
     elevation: 2,
     flex: 1,
     marginHorizontal: 5,
     alignItems: 'center',
   },
   buttonCancel: {
-    backgroundColor: '#6c757d',
+    backgroundColor: '#757575',
   },
   buttonDelete: {
     backgroundColor: '#d32f2f',
@@ -236,5 +314,6 @@ const modalStyles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
+    fontSize: 15,
   },
 });
