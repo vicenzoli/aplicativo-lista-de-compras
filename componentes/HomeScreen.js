@@ -6,7 +6,6 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Minha Lista de Compras</Text>
-        <Text style={styles.subtitle}>Gerencie seus itens de forma eficiente.</Text>
       </View>
       
       <View style={styles.menuContainer}>

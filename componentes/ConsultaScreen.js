@@ -7,71 +7,69 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Modal,
   TouchableOpacity
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native'; // Hook para executar ações quando a tela volta a ficar em foco
 
+// URL base da API mock para os itens da lista de compras
 const BASE_URL = 'https://68f0e8fe0b966ad50034ade2.mockapi.io/ListaCompras/';
 
 export default function ConsultaScreen({ navigation }) {
+  // Estado para armazenar a lista de itens
   const [lista, setLista] = useState([]);
+  // Estado para controlar se a tela está carregando
   const [loading, setLoading] = useState(true);
+  // Estado para controlar o refresh da lista via pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState(null);
 
+  // Função para buscar a lista de itens da API
   const fetchLista = async () => {
-    setLoading(true);
+    setLoading(true); // Ativa o loading
+
     try {
-      const res = await fetch(BASE_URL);
-      const data = await res.json();
-      setLista(Array.isArray(data) ? data : []);
+      const res = await fetch(BASE_URL); // Faz a requisição GET
+      const data = await res.json();     // Converte a resposta para JSON
+      setLista(Array.isArray(data) ? data : []); // Atualiza a lista (verificando se é um array)
     } catch (err) {
-      Alert.alert('Erro', 'Falha ao buscar lista.');
+      Alert.alert('Erro', 'Falha ao buscar lista.'); // Mostra alerta se houver erro
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoading(false);     // Desativa o loading
+      setRefreshing(false);  // Desativa o refreshing
     }
   };
 
+  // useFocusEffect é executado sempre que a tela volta a estar em foco
+  // Isso garante que a lista seja atualizada se o usuário voltar da tela de cadastro
   useFocusEffect(
     useCallback(() => {
       fetchLista();
     }, [])
   );
 
+  // Função chamada ao puxar para atualizar a lista (pull-to-refresh)
   const onRefresh = () => {
     setRefreshing(true);
     fetchLista();
   };
 
-  const handleDelete = (item) => {
+  // Função para excluir um item da lista
+  const handleDelete = async (item) => {
     if (!item || !item.id) {
       Alert.alert('Erro', 'ID do item inválido.');
       return;
     }
-    setItemToDelete(item);
-    setIsModalVisible(true);
-  };
 
-  const confirmDelete = async () => {
-    if (!itemToDelete) return;
-
-    setIsModalVisible(false);
-    setLoading(true);
-    
-    const deleteUrl = `${BASE_URL}${itemToDelete.id}`;
+    setLoading(true); // Ativa o loading
+    const deleteUrl = `${BASE_URL}${item.id}`; // URL específica do item
 
     try {
-      const res = await fetch(deleteUrl, { method: 'DELETE' });
-
+      const res = await fetch(deleteUrl, { method: 'DELETE' }); // Requisição DELETE
       if (res.ok) {
-        setLista((prev) =>
-          prev.filter((i) => String(i.id) !== String(itemToDelete.id))
-        );
+        // Atualiza a lista local removendo o item excluído
+        setLista((prev) => prev.filter((i) => String(i.id) !== String(item.id)));
         Alert.alert('Sucesso', 'Item excluído.');
       } else {
+        // Se a exclusão falhar, mostra o status e detalhes do erro (limitado a 100 caracteres)
         const errorText = await res.text();
         Alert.alert(
           'Erro na Exclusão',
@@ -81,77 +79,39 @@ export default function ConsultaScreen({ navigation }) {
     } catch (err) {
       Alert.alert('Erro de Rede', `Não foi possível conectar. ${String(err)}`);
     } finally {
-      setItemToDelete(null);
-      setLoading(false);
-      fetchLista();
+      setLoading(false); // Desativa o loading
     }
   };
 
-  const DeleteConfirmationModal = () => (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={isModalVisible}
-      onRequestClose={() => setIsModalVisible(false)}
-    >
-      <View style={modalStyles.centeredView}>
-        <View style={modalStyles.modalView}>
-          <Text style={modalStyles.modalTitle}>Confirmar Exclusão</Text>
-          <Text style={modalStyles.modalText}>
-            Deseja realmente excluir o item 
-            <Text style={{ fontWeight: 'bold' }}> "{itemToDelete?.titulo}"</Text>?
-          </Text>
-
-          <View style={modalStyles.buttonContainer}>
-            <TouchableOpacity
-              style={[modalStyles.button, modalStyles.buttonCancel]}
-              onPress={() => {
-                setIsModalVisible(false);
-                setItemToDelete(null);
-              }}
-            >
-              <Text style={modalStyles.textStyle}>Cancelar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[modalStyles.button, modalStyles.buttonDelete]}
-              onPress={confirmDelete}
-            >
-              <Text style={modalStyles.textStyle}>Excluir</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
   return (
     <View style={styles.container}>
-      <DeleteConfirmationModal />
-
+      {/* Botão no topo para criar novo item */}
       <View style={styles.topButton}>
         <TouchableOpacity
           style={styles.newButton}
-          onPress={() => navigation.navigate('Cadastro')}
+          onPress={() => navigation.navigate('Cadastro')} // Navega para tela de cadastro
         >
           <Text style={styles.newButtonText}>+ Novo Item</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Indicador de carregamento */}
       {loading ? (
         <ActivityIndicator size="large" color="#1976d2" style={{ marginTop: 20 }} />
       ) : (
         <ScrollView
           style={{ width: '100%' }}
           contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 20 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} // Pull-to-refresh
         >
+          {/* Caso não existam itens */}
           {lista.length === 0 ? (
             <Text style={styles.empty}>Nenhum item cadastrado ainda.</Text>
           ) : (
+            // Mapeia e renderiza cada item da lista
             lista.map((item, idx) => (
               <View key={item.id ?? idx} style={styles.card}>
-                <Text style={styles.title}>{item.titulo ?? `Item ${idx + 1}`}</Text>
+                <Text style={styles.title}>{item.produto ?? `Item ${idx + 1}`}</Text>
                 <Text style={styles.detail}>
                   <Text style={styles.detailLabel}>Quantidade:</Text> {item.quantidade ?? '—'}
                 </Text>
@@ -159,14 +119,17 @@ export default function ConsultaScreen({ navigation }) {
                   <Text style={styles.detailLabel}>Preço:</Text> {item.preco ?? '—'}
                 </Text>
                 
+                {/* Botões de ação dentro do card */}
                 <View style={styles.cardButtons}>
+                  {/* Botão de edição */}
                   <TouchableOpacity
                     style={[styles.actionButton, styles.editButton]}
-                    onPress={() => navigation.navigate('Cadastro', { itemParaEditar: item })}
+                    onPress={() => navigation.navigate('Cadastro', { itemParaEditar: item })} // Passa o item para edição
                   >
                     <Text style={styles.actionButtonText}>Editar</Text>
                   </TouchableOpacity>
                   
+                  {/* Botão de exclusão */}
                   <TouchableOpacity
                     style={[styles.actionButton, styles.deleteButton]}
                     onPress={() => handleDelete(item)}
@@ -183,6 +146,7 @@ export default function ConsultaScreen({ navigation }) {
   );
 }
 
+// Estilos da tela
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5', alignItems: 'center' },
   topButton: { width: '90%', marginVertical: 15 },
@@ -191,7 +155,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
-    elevation: 3,
+    elevation: 3, // Sombra para Android
   },
   newButtonText: {
     color: 'white',
@@ -203,8 +167,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 15,
     marginBottom: 10,
-    elevation: 3,
-    shadowColor: '#000',
+    elevation: 3, // Sombra no Android
+    shadowColor: '#000', // Sombra no iOS
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -239,10 +203,10 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   editButton: {
-    backgroundColor: '#ff9800',
+    backgroundColor: '#ff9800', // Laranja
   },
   deleteButton: {
-    backgroundColor: '#d32f2f',
+    backgroundColor: '#d32f2f', // Vermelho
   },
   actionButtonText: {
     color: 'white',
@@ -255,65 +219,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666'
   }
-});
-
-const modalStyles = StyleSheet.create({
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  modalView: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 30,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-    width: '85%',
-  },
-  modalTitle: {
-    marginBottom: 15,
-    textAlign: 'center',
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  modalText: {
-    marginBottom: 20,
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#555',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 10,
-  },
-  button: {
-    borderRadius: 8,
-    padding: 12,
-    elevation: 2,
-    flex: 1,
-    marginHorizontal: 5,
-    alignItems: 'center',
-  },
-  buttonCancel: {
-    backgroundColor: '#757575',
-  },
-  buttonDelete: {
-    backgroundColor: '#d32f2f',
-  },
-  textStyle: {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    fontSize: 15,
-  },
 });
