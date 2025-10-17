@@ -1,4 +1,4 @@
-import React, { useState, useCallback, } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,105 +7,156 @@ import {
   ActivityIndicator,
   RefreshControl,
   Button,
-  Alert
+  Alert,
+  Modal,
+  TouchableOpacity
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
-const BASE_URL = 'https://68f0e8fe0b966ad50034ade2.mockapi.io/ListaCompras';
+const BASE_URL = 'https://68f0e8fe0b966ad50034ade2.mockapi.io/ListaCompras/';
 
-const DeleteButton = ({ id, onDelete }) => (
-  <View style={{ marginTop: 10 }}>
-    <Button title="Excluir" color="#d00" onPress={() => onDelete(id)} />
-  </View>
-);
-
-export default function ConsultaScreen() {
-  const [jogos, setJogos] = useState([]);
+export default function ConsultaScreen({ navigation }) {
+  const [lista, setLista] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
 
-  async function fetchJogos() {
+  const fetchLista = async () => {
     setLoading(true);
     try {
       const res = await fetch(BASE_URL);
       const data = await res.json();
-      setJogos(Array.isArray(data) ? data : []);
+      setLista(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Erro ao buscar produtos:', err);
+      Alert.alert('Erro', 'Falha ao buscar lista.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }
-  const onDelete = (id) => {
-    if (!id) {
-      Alert.alert('Erro', 'ID do item não encontrado.');
-      return;
-    }
-
-    Alert.alert('Confirmar exclusão', 'Deseja excluir este produto?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const res = await fetch(`${BASE_URL}/${id}`, { method: 'DELETE' });
-            const status = res.status;
-            console.log('Status da exclusão:', status);
-
-            if (status === 200 || status === 204) {
-
-              fetchJogos();
-            } else {
-              Alert.alert('Erro', `Não foi possível excluir o item. Código: ${status}`);
-            }
-          } catch (err) {
-            console.error('Erro ao excluir:', err);
-            Alert.alert('Erro ao excluir', String(err));
-          }
-        }
-      }
-    ]);
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchJogos();
+      fetchLista();
     }, [])
   );
 
-  function onRefresh() {
+  const onRefresh = () => {
     setRefreshing(true);
-    fetchJogos();
-  }
+    fetchLista();
+  };
+
+  const handleDelete = (item) => {
+    if (!item || !item.id) {
+      Alert.alert('Erro', 'ID do item inválido.');
+      return;
+    }
+    setItemToDelete(item);
+    setIsModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    setIsModalVisible(false);
+    setLoading(true);
+    
+    try {
+      await fetch(`${BASE_URL}${itemToDelete.id}`, { method: 'DELETE' });
+      setLista((prev) =>
+        prev.filter((i) => String(i.id) !== String(itemToDelete.id))
+      );
+      Alert.alert('Sucesso', 'Item excluído.');
+    } catch (err) {
+      Alert.alert('Erro de rede', `Falha ao excluir item: ${String(err)}`);
+    } finally {
+      setItemToDelete(null);
+      setLoading(false);
+    }
+  };
+
+  const DeleteConfirmationModal = () => (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={isModalVisible}
+      onRequestClose={() => setIsModalVisible(false)}
+    >
+      <View style={modalStyles.centeredView}>
+        <View style={modalStyles.modalView}>
+          <Text style={modalStyles.modalTitle}>Confirmar Exclusão</Text>
+          <Text style={modalStyles.modalText}>
+            Deseja realmente excluir o item 
+            <Text style={{ fontWeight: 'bold' }}> "{itemToDelete?.titulo}"</Text>?
+          </Text>
+
+          <View style={modalStyles.buttonContainer}>
+            {}
+            <TouchableOpacity
+              style={[modalStyles.button, modalStyles.buttonCancel]}
+              onPress={() => {
+                setIsModalVisible(false);
+                setItemToDelete(null);
+              }}
+            >
+              <Text style={modalStyles.textStyle}>Cancelar</Text>
+            </TouchableOpacity>
+
+            {}
+            <TouchableOpacity
+              style={[modalStyles.button, modalStyles.buttonDelete]}
+              onPress={confirmDelete}
+            >
+              <Text style={modalStyles.textStyle}>Excluir</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   return (
     <View style={styles.container}>
+      {}
+      <DeleteConfirmationModal />
+
+      <View style={styles.topButton}>
+        <Button
+          title="+ Novo Item"
+          onPress={() => navigation.navigate('Cadastro')}
+          color="#1976d2"
+        />
+      </View>
+
       {loading ? (
-        <ActivityIndicator />
+        <ActivityIndicator size="large" />
       ) : (
         <ScrollView
           style={{ width: '100%' }}
           contentContainerStyle={{ padding: 12 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          {jogos.length === 0 ? (
-            <Text style={styles.empty}>Nenhum produto cadastrado ainda.</Text>
+          {lista.length === 0 ? (
+            <Text style={styles.empty}>Nenhum item cadastrado ainda.</Text>
           ) : (
-            jogos.map((j, idx, item, onEdit, onDelete) => (
-              <View key={j.id ?? idx} style={styles.card}>
-                <Text style={styles.title}>
-                  {j.titulo ?? `Produto ${idx + 1}`}
-                </Text>
-                <Text>Quantidade: {j.quantidade ?? '—'}</Text>
-                <Text>Preço: {j.preco ?? '—'}</Text>
-                <View style={styles.botoes}>
-               <Button title="Editar" onPress={onEdit} color="green" />
-               <Button title="Excluir" color="red" onPress={onDelete} />
-              </View>
+            lista.map((item, idx) => (
+              <View key={item.id ?? idx} style={styles.card}>
+                <Text style={styles.title}>{item.titulo ?? `Item ${idx + 1}`}</Text>
+                <Text>Quantidade: {item.quantidade ?? '—'}</Text>
+                <Text>Preço: {item.Preco ?? '—'}</Text>
+                <View style={styles.cardButtons}>
+                  <Button
+                    title="Editar"
+                    color="#1976d2"
+                    onPress={() => navigation.navigate('Cadastro', { itemParaEditar: item })}
+                  />
+                  <Button
+                    title="Excluir"
+                    color="#d32f2f"
+                    onPress={() => handleDelete(item)}
+                  />
+                </View>
               </View>
             ))
           )}
@@ -116,11 +167,8 @@ export default function ConsultaScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 8
-  },
+  container: { flex: 1, alignItems: 'center', padding: 8 },
+  topButton: { width: '90%', marginVertical: 10 },
   card: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -129,14 +177,64 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: '#fff'
   },
-  title: {
-    fontWeight: 'bold',
-    marginBottom: 6
+  title: { fontWeight: 'bold', marginBottom: 6 },
+  empty: { fontSize: 16, color: '#666', textAlign: 'center', marginTop: 20 },
+  cardButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }
+});
+
+const modalStyles = StyleSheet.create({
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  empty: {
-    fontSize: 16,
-    color: '#666',
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    width: '80%',
+  },
+  modalTitle: {
+    marginBottom: 15,
     textAlign: 'center',
-    marginTop: 20
-  }
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalText: {
+    marginBottom: 20,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  button: {
+    borderRadius: 6,
+    padding: 10,
+    elevation: 2,
+    flex: 1,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  buttonCancel: {
+    backgroundColor: '#6c757d',
+  },
+  buttonDelete: {
+    backgroundColor: '#d32f2f',
+  },
+  textStyle: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
 });

@@ -16,18 +16,7 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16
-  },
-  title: {
-    fontSize: 20,
-    marginBottom: 24
-  },
-  btn: {
-    width: '80%',
-    marginVertical: 8
-  }
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
+  title: { fontSize: 20, marginBottom: 24 },
+  btn: { width: '80%', marginVertical: 8 }
 });

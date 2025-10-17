@@ -2,9 +2,8 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-// Importando suas telas
-import CadastroScreen from './componentes/CadastroScreen';
 import HomeScreen from './componentes/HomeScreen';
+import CadastroScreen from './componentes/CadastroScreen';
 import ConsultaScreen from './componentes/ConsultaScreen';
 
 const Stack = createNativeStackNavigator();
